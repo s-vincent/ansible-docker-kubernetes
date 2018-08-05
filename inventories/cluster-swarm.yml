@@ -1,0 +1,9 @@
+# Docker swarm hosts
+[docker-manager]
+
+[docker-worker]
+
+[docker:children]
+docker-manager
+docker-worker
+

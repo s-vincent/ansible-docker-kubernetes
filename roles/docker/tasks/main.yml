@@ -1,0 +1,26 @@
+---
+# Common
+
+- name: Check if docker is installed
+  package:
+    name: docker-ce
+    state: present
+  register: pkg_check
+  check_mode: true
+  ignore_errors: yes
+
+- name: Install docker-ce
+  shell: curl -sSL https://get.docker.com/ | sh
+  when: pkg_check.changed or (pkg_check.failed is defined and pkg_check.failed)
+
+- name: Adds remote user to docker group
+  user: 
+    name: '{{ ansible_ssh_user }}'
+    groups: docker
+    append: yes
+
+- name: Start docker service
+  service:
+    name: docker
+    state: started
+

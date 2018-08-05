@@ -1,0 +1,17 @@
+---
+- name: "Provision hosts for docker swarm"
+  hosts: docker 
+  become: yes
+  become_user: root 
+  roles:
+    - docker
+    - docker-swarm
+
+- name: "Provision hosts for kubernetes"
+  hosts: kubernetes
+  become: yes
+  become_user: root 
+  roles:
+    - docker
+    - kubernetes
+

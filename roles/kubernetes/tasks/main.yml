@@ -1,0 +1,101 @@
+---
+
+# Common
+
+#- name: Downgrade to docker-ce 1712
+#  package:
+#    name: docker-ce=17.12.1~ce-0~raspbian
+#    state: present
+#    force: yes
+
+- name: Disable swap
+  shell: systemctl disable dphys-swapfile && systemctl stop dphys-swapfile
+
+- name: Check if kubernetes is installed
+  package:
+    name: kubelet
+    state: present
+  register: pkg_check
+  check_mode: true
+  ignore_errors: true
+
+- name: Install kubernetes repository key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+  when: pkg_check.changed or pkg_check.failed
+
+- name: Adds kubernetes repository
+  lineinfile:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    line: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    create: yes
+  when: pkg_check.changed or pkg_check.failed
+
+- name: Install kubernetes tools
+  package: name={{ item }} state=present update_cache=yes
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+    - kubernetes-cni
+
+# Master
+
+- name: Check for kubernetes admin.conf file
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: p
+  when: "'kubernetes-master' in group_names"
+
+- name: Create /etc/cni/net.d for kubelet
+  file:
+    path: /etc/cni/net.d
+    state: directory
+    mode: 0755
+
+- name: Init kubernetes cluster master 
+  shell: kubeadm init --pod-network-cidr 10.244.0.0/16 --apiserver-advertise-address {{ ansible_default_ipv4['address'] }}
+  when: "'kubernetes-master' in group_names and not p.stat.exists"
+
+- name: Adds weave network driver
+  shell: KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+  when: "'kubernetes-master' in group_names and not p.stat.exists"
+
+- name: Creates .kube in user directory
+  file:
+    path: "/home/{{ ansible_ssh_user }}/.kube"
+    state: directory
+    owner: '{{ ansible_ssh_user }}'
+    group: '{{ ansible_ssh_user }}'
+    mode: 0755
+  when: "'kubernetes-master' in group_names"
+
+- name: Copy kubernetes configuration file
+  copy:
+    src: /etc/kubernetes/admin.conf
+    remote_src: yes
+    dest: "/home/{{ ansible_ssh_user }}/.kube/config"
+    owner: '{{ ansible_ssh_user }}'
+    group: '{{ ansible_ssh_user }}'
+    mode: 0755
+  when: "'kubernetes-master' in group_names"
+
+- name: Get token to be able to join cluster for workers
+  shell: KUBECONFIG=/etc/kubernetes/admin.conf kubeadm token create --print-join-command
+  register: cluster-join
+  when: "'kubernetes-master' in group_names and not p.stat.exists"
+
+# Worker
+
+- name: Check for kubernetes kubelet.conf file
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: p
+  when: "'kubernetes-worker' in group_names"
+
+- name: Init kubernetes cluster worker 
+  shell: "{{ hostvars[groups['kubernetes-master'][0]]['cluster-join'].stdout }}"
+  when: "'kubernetes-worker' in group_names and not p.stat.exists"
+

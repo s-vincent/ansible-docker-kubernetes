@@ -1,0 +1,3 @@
+mgr_iface: "{{ ansible_default['ipv4']['interface'] }}"
+mgr_addr: "{{ vars['ansible_' + mgr_iface]['ipv4']['address'] }}"
+

@@ -1,0 +1,43 @@
+---
+# Common
+
+- name: Check if docker swarm is configured
+  shell: docker info 
+  register: p
+  changed_when: false
+
+# Manager 
+
+- name: Retrieve swarm manager address
+  set_fact:
+    manager_addr: "{{ mgr_addr }}"
+  when: "'docker-manager' in group_names"
+
+- name: Initialize docker swarm manager
+  shell: docker swarm init --advertise-addr {{ mgr_addr }} --listen-addr {{ mgr_addr }}
+  when: "'Swarm: inactive' in p.stdout and 'docker-manager' in group_names"
+
+- name: Worker token
+  shell: docker swarm join-token --quiet worker
+  register: worker-token
+  changed_when: false
+  when: "'docker-manager' in group_names"
+
+- name: Manager token
+  shell: docker swarm join-token --quiet manager
+  register: manager-token
+  changed_when: false
+  when: "'docker-manager' in group_names"
+
+# Worker
+
+- name: Retrieve manager address
+  set_fact:
+    manager_addr: "{{ hostvars[groups['docker-manager'][0]]['manager_addr'] }}"
+  when: "'docker-worker' in group_names"
+
+- name: Initialize docker swarm worker
+  shell: docker swarm join --advertise-addr {{ worker_addr }} --listen-addr {{ worker_addr }} --token {{ hostvars[groups['docker-manager'][0]]['worker-token'].stdout }} {{ manager_addr }}:2377
+  when: "'Swarm: inactive' in p.stdout and 'docker-worker' in group_names"
+
+

@@ -1,0 +1,9 @@
+# Kubernetes hosts
+[kubernetes-master]
+
+[kubernetes-worker]
+
+[kubernetes:children]
+kubernetes-master
+kubernetes-worker
+
