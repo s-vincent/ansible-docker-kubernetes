@@ -10,6 +10,11 @@
 
 - name: Disable swap
   shell: systemctl disable dphys-swapfile && systemctl stop dphys-swapfile
+  ignore_errors: true
+
+- name: Disable swap2
+  shell: swapoff -a
+  ignore_errors: true
 
 - name: Check if kubernetes is installed
   package:

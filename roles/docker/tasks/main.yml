@@ -1,6 +1,11 @@
 ---
 # Common
 
+- name: Install basic dependencies
+  package: name={{ item }} state=present
+  with_items:
+    - curl
+
 - name: Check if docker is installed
   package:
     name: docker-ce
@@ -14,7 +19,7 @@
   when: pkg_check.changed or (pkg_check.failed is defined and pkg_check.failed)
 
 - name: Adds remote user to docker group
-  user: 
+  user:
     name: '{{ ansible_ssh_user }}'
     groups: docker
     append: yes
